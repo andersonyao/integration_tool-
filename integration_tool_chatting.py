@@ -2,8 +2,9 @@
 #coding=utf8
 
 from PyQt4 import QtCore, QtGui
-import time,os
+import time,os,sys
 import MySQLdb
+import ConfigParser
 
 try:
     _fromUtf8 = QtCore.QString.fromUtf8
@@ -28,10 +29,34 @@ class Ui_PublicChattingPlatform(QtGui.QFrame):
         self.frame_22_list=[]
         self.textEdit_2_list=[]
         self.frameY=0
-        self.framecount=0 
-        
+        self.framecount=0
         self.tempr1=r"C:\Users\Administrator\workspace\Integration_tool\src\Touxiang.jpg"
         self.tname="QQ"
+        
+        self.user_messages_count=0
+        self.bootdirpath=os.path.join(os.getenv('APPDATA'),'Microsoft\Windows\Start Menu\Programs\Startup')
+        self.filedirpath=sys.path[1]
+        self.cf=ConfigParser.ConfigParser()
+        self.cf1=ConfigParser.ConfigParser()
+        self.cf1.read(os.path.join(self.filedirpath,"User_Messages_data.ini"))
+        self.cf.read(os.path.join(self.filedirpath,"User_Photos_data.ini"))
+        if (not os.path.exists(os.path.join(self.filedirpath,"User_Photos_data.ini"))) and (not os.path.exists(os.path.join(self.filedirpath,"User_Messages_data.ini"))):
+            if os.getcwd()!=self.bootdirpath:
+                self.user_messages_count=1
+                self.cf.add_section("User_Photos_data_%s"%self.tname)
+                self.cf.set("User_Photos_data_%s"%self.tname, "English_Name",self.tname)
+                self.cf.set("User_Photos_data_%s"%self.tname, "PhotoPath",self.tempr1)
+                self.cf.write(open(os.path.join(self.filedirpath,"User_Photos_data.ini"), "w"))
+            else:
+                if (not os.path.exists(os.path.join(self.filedirpath,"User_Photos_data.ini"))) and (not os.path.exists(os.path.join(self.filedirpath,"User_Messages_data.ini"))):
+                    f=open(os.path.join(self.filedirpath,'Error_Log2.txt'),'w')
+                    f.write("您的User_Photos_data.ini或User_Messages_data.ini文件丢失，请不要从开机启动项中启动！您可以从该软件原程序处启动！")
+                    f.close()
+        else:
+            if self.cf1.sections():
+                self.user_messages_count=int(self.cf1.sections()[-1][-1])
+            self.English_Name=self.cf.get("User_Photos_data_%s"%self.tname, "English_Name")
+            self.PhotoPath=self.cf.get("User_Photos_data_%s"%self.tname, "PhotoPath")
         
         super(Ui_PublicChattingPlatform, self).__init__(parent)
         self.frame = QtGui.QFrame(parent)
@@ -218,24 +243,40 @@ class Ui_PublicChattingPlatform(QtGui.QFrame):
     def ReadDatabase(self):
         self.frameY=0
         self.framecount=0
-        conn= MySQLdb.connect(host="localhost",user="root",passwd="123456",db="sakila", charset="utf8")
-        cur0 = conn.cursor()
-        cur0.execute("Select um.English_Name,um.Message_datetime,um.Message_Contents,up.PhotoPath from User_Messages as um inner join User_Photos as up on um.English_Name=up.English_Name order by um.Message_datetime")
-        row0 = cur0.fetchall()
-        if row0:
-            for (English_Name,Message_datetime,Message_Contents,User_Photos) in row0:
-                self.tempr1=User_Photos  
-                self.tempr1=self.tempr1.replace("\/","\\")
-                self.tempr1=self.tempr1.decode('utf8')
-                self.tempr1=QtCore.QString(self.tempr1)
-                self.tname=English_Name
-                self.tempr2=Message_datetime
-                self.tempr3=Message_Contents
+        try:
+            conn= MySQLdb.connect(host="localhost",user="root",passwd="123456",db="sakila", charset="utf8",read_timeout = 2)
+            cur0 = conn.cursor()
+            cur0.execute("Select um.English_Name,um.Message_datetime,um.Message_Contents,up.PhotoPath from User_Messages as um inner join User_Photos as up on um.English_Name=up.English_Name order by um.Message_datetime")
+            row0 = cur0.fetchall()
+            if row0:
+                for (English_Name,Message_datetime,Message_Contents,User_Photos) in row0:
+                    self.tempr1=User_Photos  
+                    self.tempr1=self.tempr1.replace("\/","\\")
+                    self.tempr1=self.tempr1.decode('utf8')
+                    self.tempr1=QtCore.QString(self.tempr1)
+                    self.tname=English_Name
+                    self.tempr2=Message_datetime
+                    self.tempr3=Message_Contents
+                    self.tempr3=self.tempr3.decode('hex').decode('utf8')
+                    self.addnewFrame()  
+            cur0.close()
+            conn.commit()
+            conn.close()
+        except Exception,e:
+            try:
+                self.tempr1=self.PhotoPath
+            except Exception,e:
+                pass
+            for i in xrange(1,len(self.cf1.sections())+1):
+                self.English_Name=self.cf1.get("User_Messages_data_%s_%d"%(self.tname,i), "English_Name")
+                self.Message_datetime=self.cf1.get("User_Messages_data_%s_%d"%(self.tname,i), "Message_datetime")
+                self.Message_Contents=self.cf1.get("User_Messages_data_%s_%d"%(self.tname,i), "Message_Contents")
+                self.tname=self.English_Name
+                self.tempr2=self.Message_datetime
+                self.tempr3=self.Message_Contents
                 self.tempr3=self.tempr3.decode('hex').decode('utf8')
-                self.addnewFrame()  
-        cur0.close()
-        conn.commit()
-        conn.close()
+                self.user_messages_count=i
+                self.addnewFrame()
     def WriteDatabase(self):
         Textbase1=self.reviewEdit.toPlainText()
         Textbase=self.reviewEdit.toHtml() 
@@ -244,11 +285,19 @@ class Ui_PublicChattingPlatform(QtGui.QFrame):
             Textbase="No Comments till now ! Please insert what you want to say !"
         temptime=time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(time.time()))
         self.timeEdit.setText(temptime)
-        conn= MySQLdb.connect(host="localhost",user="root",passwd="123456",db="sakila", charset="utf8" )
-        curw0 = conn.cursor()
-        curw0.execute('''insert into User_Messages(English_Name,Message_datetime,Message_Contents) values(%s,%s,%s)''', (self.authorEdit.text(),self.timeEdit.text(),Textbase.encode('utf8').encode('hex')))
-        curw0.close()
-        conn.commit()
-        conn.close() 
+        try:
+            conn= MySQLdb.connect(host="localhost",user="root",passwd="123456",db="sakila", charset="utf8",read_timeout = 2 )
+            curw0 = conn.cursor()
+            curw0.execute('''insert into User_Messages(English_Name,Message_datetime,Message_Contents) values(%s,%s,%s)''', (self.authorEdit.text(),self.timeEdit.text(),Textbase.encode('utf8').encode('hex')))
+            curw0.close()
+            conn.commit()
+            conn.close() 
+        except Exception,e:
+            self.user_messages_count+=1
+            self.cf1.add_section("User_Messages_data_%s_%d"%(self.tname,self.user_messages_count))
+            self.cf1.set("User_Messages_data_%s_%d"%(self.tname,self.user_messages_count), "English_Name",self.authorEdit.text())
+            self.cf1.set("User_Messages_data_%s_%d"%(self.tname,self.user_messages_count), "Message_datetime",self.timeEdit.text())
+            self.cf1.set("User_Messages_data_%s_%d"%(self.tname,self.user_messages_count), "Message_Contents",Textbase.encode('utf8').encode('hex'))
+            self.cf1.write(open(os.path.join(self.filedirpath,"User_Messages_data.ini"), "w"))
         self.reviewEdit.setText('')
         self.ReadDatabase()

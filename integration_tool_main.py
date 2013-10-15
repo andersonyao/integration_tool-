@@ -635,12 +635,10 @@ if __name__=='__main__':
     clock.show()
     chat = Ui_PublicChattingPlatform(integration_tool_main.main_frame)
     chat.hide()
-    
-    
+
     tools_dict={}
     tools_dict[1]=myalarm
     tools_dict[2]=chat
-    
     
     sys.exit(app.exec_())
     
