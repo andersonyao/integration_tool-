@@ -5,6 +5,10 @@ from PyQt4 import QtCore, QtGui
 import time,os,sys
 import MySQLdb
 import ConfigParser
+import poplib
+import cStringIO
+from email.header import decode_header
+from email import message_from_file
 
 try:
     _fromUtf8 = QtCore.QString.fromUtf8
@@ -18,7 +22,13 @@ try:
 except AttributeError:
     def _translate(context, text, disambig):
         return QtGui.QApplication.translate(context, text, disambig)
-     
+    
+class ExtendedQLabel(QtGui.QLabel):
+    def __init(self, parent):
+        QtGui.QLabel.__init__(self, parent)
+    def mouseReleaseEvent(self, ev):
+        self.emit(QtCore.SIGNAL('clicked(PyQt_PyObject)'), self) 
+
 class Ui_PublicChattingPlatform(QtGui.QFrame):
     def __init__(self,parent=None):
         self.frame_2_list=[]
@@ -31,33 +41,60 @@ class Ui_PublicChattingPlatform(QtGui.QFrame):
         self.frameY=0
         self.framecount=0
         self.tempr1=r"C:\Users\Administrator\workspace\Integration_tool\src\Touxiang.jpg"
-        self.tname="QQ"
+        self.tname="anonymity"
         
         self.user_messages_count=0
         self.bootdirpath=os.path.join(os.getenv('APPDATA'),'Microsoft\Windows\Start Menu\Programs\Startup')
         self.filedirpath=sys.path[1]
-        self.cf=ConfigParser.ConfigParser()
-        self.cf1=ConfigParser.ConfigParser()
-        self.cf1.read(os.path.join(self.filedirpath,"User_Messages_data.ini"))
-        self.cf.read(os.path.join(self.filedirpath,"User_Photos_data.ini"))
-        if (not os.path.exists(os.path.join(self.filedirpath,"User_Photos_data.ini"))) and (not os.path.exists(os.path.join(self.filedirpath,"User_Messages_data.ini"))):
-            if os.getcwd()!=self.bootdirpath:
-                self.user_messages_count=1
-                self.cf.add_section("User_Photos_data_%s"%self.tname)
-                self.cf.set("User_Photos_data_%s"%self.tname, "English_Name",self.tname)
-                self.cf.set("User_Photos_data_%s"%self.tname, "PhotoPath",self.tempr1)
-                self.cf.write(open(os.path.join(self.filedirpath,"User_Photos_data.ini"), "w"))
-            else:
-                if (not os.path.exists(os.path.join(self.filedirpath,"User_Photos_data.ini"))) and (not os.path.exists(os.path.join(self.filedirpath,"User_Messages_data.ini"))):
-                    f=open(os.path.join(self.filedirpath,'Error_Log2.txt'),'w')
-                    f.write("您的User_Photos_data.ini或User_Messages_data.ini文件丢失，请不要从开机启动项中启动！您可以从该软件原程序处启动！")
-                    f.close()
-        else:
-            if self.cf1.sections():
-                self.user_messages_count=int(self.cf1.sections()[-1][-1])
-            self.English_Name=self.cf.get("User_Photos_data_%s"%self.tname, "English_Name")
-            self.PhotoPath=self.cf.get("User_Photos_data_%s"%self.tname, "PhotoPath")
         
+        M = poplib.POP3('pop.163.com')
+        M.user('integration_tool@163.com')
+        M.pass_('qwe123')
+        numMessages = len(M.list()[1]) 
+        if numMessages:
+            m = M.retr(numMessages) 
+            buf = cStringIO.StringIO()
+            subject_flag=0
+            for j in m[1]:
+                print >>buf,j
+            buf.seek(0)
+            msg = message_from_file(buf)
+            for part in msg.walk():
+                contenttype =  part.get('Content-Disposition')
+                subject=part.get('subject')
+                if str(subject).find('User_data')!=-1:
+                    subject_flag=1
+                filename=decode_header(part.get_filename())
+                if filename and contenttype and contenttype[0:10]== 'attachment':
+                    if subject_flag==1:
+                        f = open(os.path.join(self.filedirpath,"User_data.ini"),'w')
+                        f.write(part.get_payload(decode=True).decode('utf8'))
+                        f.close()
+                        subject_flag=0
+        M.quit()
+        
+        self.cf1=ConfigParser.ConfigParser()
+        self.cf1.read(os.path.join(self.filedirpath,"User_data.ini"))
+        self.cf2=ConfigParser.ConfigParser()
+        self.cf2.read(os.path.join(self.filedirpath,"User_photo_data.ini"))
+        if (not os.path.exists(os.path.join(self.filedirpath,"User_data.ini"))) or (not os.path.exists(os.path.join(self.filedirpath,"User_photo_data.ini"))):
+            if os.getcwd()!=self.bootdirpath:
+                self.cf2.add_section("User_photo_data")
+                self.cf2.set("User_photo_data", "English_Name",self.tname)
+                self.cf2.set("User_photo_data", "PhotoPath",self.tempr1)
+                self.cf2.write(open(os.path.join(self.filedirpath,"User_photo_data.ini"), "w"))
+            else:
+                f=open(os.path.join(self.filedirpath,'Error_Log.txt'),'w')
+                f.write("您的User_data.ini或User_photo_data.ini文件丢失，请不要从开机启动项中启动！您可以从该软件原程序处启动！")
+                f.close()
+        else:
+            if len(self.cf1.sections())>=1:
+                self.user_messages_count=int(self.cf1.sections()[-1][-1])
+        self.Photo_English_Name=self.cf2.get("User_photo_data", "English_Name")
+        self.PhotoPath=self.cf2.get("User_photo_data", "PhotoPath")
+        self.tname=self.Photo_English_Name
+        self.tempr1=self.PhotoPath
+
         super(Ui_PublicChattingPlatform, self).__init__(parent)
         self.frame = QtGui.QFrame(parent)
         self.frame.setGeometry(QtCore.QRect(0, 0, 600, 365))
@@ -86,13 +123,14 @@ class Ui_PublicChattingPlatform(QtGui.QFrame):
         self.chat_frame_2.setFrameShadow(QtGui.QFrame.Raised)
         self.chat_frame_2.setObjectName(_fromUtf8("chat_frame_2"))
         self.chat_frame_2.setFrameShadow(QtGui.QFrame.Sunken)
-        photo = QtGui.QLabel('photo',self.chat_frame_2)
-        photo.setGeometry(QtCore.QRect(0, 0, 100, 100))
-        photo.setFrameShape(QtGui.QFrame.StyledPanel)
-        photo.setText("")
-        photo.setPixmap(QtGui.QPixmap(self.tempr1))
-        photo.setAlignment(QtCore.Qt.AlignCenter)
-        photo.setObjectName("photo")        
+        self.photo = ExtendedQLabel('photo',self.chat_frame_2)
+        self.photo.setGeometry(QtCore.QRect(0, 0, 100, 100))
+        self.photo.setFrameShape(QtGui.QFrame.StyledPanel)
+        self.photo.setText('')
+        self.photo.setPixmap(QtGui.QPixmap(self.tempr1))
+        self.photo.setAlignment(QtCore.Qt.AlignCenter)
+        self.photo.setObjectName("photo") 
+        QtCore.QObject.connect(self.photo, QtCore.SIGNAL("clicked(PyQt_PyObject)"), self.Upload_photo)
         author = QtGui.QLabel('Author',self.chat_frame_2)
         title = QtGui.QLabel('Title',self.chat_frame_2)
         review = QtGui.QLabel('Review',self.chat_frame_2)
@@ -101,7 +139,7 @@ class Ui_PublicChattingPlatform(QtGui.QFrame):
         self.authorEdit.setAlignment(QtCore.Qt.AlignCenter)
         self.authorEdit.setObjectName("authorEdit")
         self.authorEdit.setText(self.tname)
-        self.authorEdit.setReadOnly(True)
+#         self.authorEdit.setReadOnly(True)
         self.timeEdit = QtGui.QLineEdit(self.chat_frame_2)
         self.timeEdit.setGeometry(QtCore.QRect(100, 0, 80, 50))
         self.timeEdit.setAlignment(QtCore.Qt.AlignCenter)
@@ -136,7 +174,7 @@ class Ui_PublicChattingPlatform(QtGui.QFrame):
         grid_button.addWidget(InsertButton, 1, 0)
         grid_button.addWidget(pushButton, 1, 1)
         grid.setSpacing(10)
-        grid.addWidget(photo, 1, 0, 2, 2)
+        grid.addWidget(self.photo, 1, 0, 2, 2)
         grid.addWidget(author, 1, 2)
         grid.addWidget(self.authorEdit, 1, 3)
         grid.addWidget(title, 2, 2)
@@ -177,7 +215,16 @@ class Ui_PublicChattingPlatform(QtGui.QFrame):
         self.scrollAreaWidgetContents.setObjectName("scrollAreaWidgetContents")
         self.scrollArea.setWidget(self.scrollAreaWidgetContents)    
         QtCore.QMetaObject.connectSlotsByName(self.frame)
-        self.ReadDatabase()        
+        self.ReadDatabase()
+    def Upload_photo(self):
+        dlg2 = QtGui.QFileDialog()
+        uploadphoto = dlg2.getOpenFileName(self,u"open the text", os.getcwd(), "image files (*.jpeg *.jpg *.png *.gif *.bmp)")
+        if not uploadphoto:
+            uploadphoto=QtCore.QString(r'C:\Users\Administrator\workspace\Integration_tool\src\Touxiang.jpg')
+        self.photo.setPixmap(QtGui.QPixmap(uploadphoto))
+        self.tempr1=unicode(uploadphoto,'utf8','ignore')
+        self.cf2.set("User_photo_data", "PhotoPath",self.tempr1)
+        self.cf2.write(open(os.path.join(self.filedirpath,"User_photo_data.ini"), "w"))
     def InsertImagefun(self):
         dlg1 = QtGui.QFileDialog()
         insertimage = dlg1.getOpenFileName(self,u"open the text", os.getcwd(), "image files (*.jpeg *.jpg *.png *.gif *.bmp)")
@@ -267,16 +314,19 @@ class Ui_PublicChattingPlatform(QtGui.QFrame):
                 self.tempr1=self.PhotoPath
             except Exception,e:
                 pass
-            for i in xrange(1,len(self.cf1.sections())+1):
-                self.English_Name=self.cf1.get("User_Messages_data_%s_%d"%(self.tname,i), "English_Name")
-                self.Message_datetime=self.cf1.get("User_Messages_data_%s_%d"%(self.tname,i), "Message_datetime")
-                self.Message_Contents=self.cf1.get("User_Messages_data_%s_%d"%(self.tname,i), "Message_Contents")
-                self.tname=self.English_Name
-                self.tempr2=self.Message_datetime
-                self.tempr3=self.Message_Contents
-                self.tempr3=self.tempr3.decode('hex').decode('utf8')
-                self.user_messages_count=i
-                self.addnewFrame()
+            if len(self.cf1.sections())>=1:
+                j=0
+                for i in self.cf1.sections():
+                    j+=1
+                    self.English_Name=self.cf1.get("%s"%i, "English_Name")
+                    self.Message_datetime=self.cf1.get("%s"%i, "Message_datetime")
+                    self.Message_Contents=self.cf1.get("%s"%i, "Message_Contents")
+                    self.tname=self.English_Name
+                    self.tempr2=self.Message_datetime
+                    self.tempr3=self.Message_Contents
+                    self.tempr3=self.tempr3.decode('hex').decode('utf8')
+                    self.user_messages_count=j
+                    self.addnewFrame()
     def WriteDatabase(self):
         Textbase1=self.reviewEdit.toPlainText()
         Textbase=self.reviewEdit.toHtml() 
@@ -293,11 +343,17 @@ class Ui_PublicChattingPlatform(QtGui.QFrame):
             conn.commit()
             conn.close() 
         except Exception,e:
-            self.user_messages_count+=1
-            self.cf1.add_section("User_Messages_data_%s_%d"%(self.tname,self.user_messages_count))
-            self.cf1.set("User_Messages_data_%s_%d"%(self.tname,self.user_messages_count), "English_Name",self.authorEdit.text())
-            self.cf1.set("User_Messages_data_%s_%d"%(self.tname,self.user_messages_count), "Message_datetime",self.timeEdit.text())
-            self.cf1.set("User_Messages_data_%s_%d"%(self.tname,self.user_messages_count), "Message_Contents",Textbase.encode('utf8').encode('hex'))
-            self.cf1.write(open(os.path.join(self.filedirpath,"User_Messages_data.ini"), "w"))
+            if self.user_messages_count==0:
+                self.user_messages_count=1
+            else:
+                self.user_messages_count+=1
+            self.cf2.set("User_photo_data", "English_Name",self.authorEdit.text())
+            self.cf2.set("User_photo_data", "PhotoPath",self.tempr1)
+            self.cf2.write(open(os.path.join(self.filedirpath,"User_photo_data.ini"), "w"))
+            self.cf1.add_section("User_Messages_data_%s_%d"%(self.authorEdit.text(),self.user_messages_count))
+            self.cf1.set("User_Messages_data_%s_%d"%(self.authorEdit.text(),self.user_messages_count), "English_Name",self.authorEdit.text())
+            self.cf1.set("User_Messages_data_%s_%d"%(self.authorEdit.text(),self.user_messages_count), "Message_datetime",self.timeEdit.text())
+            self.cf1.set("User_Messages_data_%s_%d"%(self.authorEdit.text(),self.user_messages_count), "Message_Contents",Textbase.encode('utf8').encode('hex'))
+            self.cf1.write(open(os.path.join(self.filedirpath,"User_data.ini"), "w"))
         self.reviewEdit.setText('')
         self.ReadDatabase()

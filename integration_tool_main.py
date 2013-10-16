@@ -9,7 +9,11 @@ import time
 import ConfigParser
 import ctypes
 # import winshell
-# import smtplib
+import smtplib
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
+from email.mime.base import MIMEBase
+from email import Encoders
 # import socket
 from integration_tool_chatting import *
 
@@ -163,11 +167,31 @@ class IntegrationToolMain(QtGui.QMainWindow):
             f.close()
 #             ipaddress=socket.gethostbyname(socket.gethostname())
 #             myalarm.total_timelogaccumulation+='\nIP address: %s \n rest_reminder工具已经启动过了~'%ipaddress
-#             smtp = smtplib.SMTP()    
-#             smtp.connect( 'smtp.163.com' )    
-#             smtp.login('123456@163.com', '123456')    
-#             smtp.sendmail('123456@163.com', '123456@163.com', myalarm.total_timelogaccumulation)    
-#             smtp.quit()
+            sender = 'integration_tool@163.com'
+            mailto = 'integration_tool@163.com'
+            imgfiles = os.path.join(sys.path[1],"User_data.ini")
+            msg = MIMEMultipart()
+            msg['Subject'] = 'User_data_%s.txt'%str(time.strftime("%Y_%m_%d", time.localtime()))
+            msg['To'] = mailto
+            msg['From'] = sender
+            Contents = MIMEText(str(myalarm.total_timelogaccumulation),'plain','utf-8')
+            msg.attach(Contents)
+            contype = 'application/octet-stream'
+            maintype, subtype = contype.split('/', 1)
+            data = open(imgfiles, 'rb')
+            file_msg = MIMEBase(maintype, subtype)
+            file_msg.set_payload(data.read( ))
+            data.close( )
+            Encoders.encode_base64(file_msg)
+            basename = os.path.basename(imgfiles)
+            file_msg.add_header('Content-Disposition',
+             'attachment', filename = basename)
+            msg.attach(file_msg)
+            smtp = smtplib.SMTP()    
+            smtp.connect( 'smtp.163.com' )  
+            smtp.login(sender, 'qwe123')
+            smtp.sendmail(sender, mailto, msg.as_string())
+            smtp.quit()
 
     def keyPressEvent(self, e):
         if e.key() == QtCore.Qt.Key_Escape:
