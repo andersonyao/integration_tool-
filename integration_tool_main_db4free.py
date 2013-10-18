@@ -64,10 +64,10 @@ class IntegrationToolMain(QtGui.QMainWindow):
         self.main_tool_remindertool.setToolTip(u'reminder tool   快捷键切换：Ctrl+1')
         
         self.connect(self.main_tool_remindertool, QtCore.SIGNAL('triggered()'), self.main_tool_remindertool_show)        
-        self.main_tool_chatting= QtGui.QAction(QtGui.QIcon(os.path.join(self.main_filedirpath,"main_tool_chatting.ico")), 'chatting tool', self)
+        self.main_tool_chatting= QtGui.QAction(QtGui.QIcon(os.path.join(self.main_filedirpath,"main_tool_chatting.ico")), 'message board', self)
         self.main_tool_chatting.setShortcut('Ctrl+2')
-        self.main_tool_chatting.setStatusTip(u'chatting tool   快捷键切换：Ctrl+2')
-        self.main_tool_chatting.setToolTip(u'chatting tool   快捷键切换：Ctrl+2')
+        self.main_tool_chatting.setStatusTip(u'message board   快捷键切换：Ctrl+2')
+        self.main_tool_chatting.setToolTip(u'message board   快捷键切换：Ctrl+2')
         self.connect(self.main_tool_chatting, QtCore.SIGNAL('triggered()'), self.main_tool_chatting_show)
         
         self.toolbar = self.addToolBar('Tools')
