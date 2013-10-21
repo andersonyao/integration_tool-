@@ -12,6 +12,7 @@ import ctypes
 import smtplib
 # import socket
 from integration_tool_chatting_db4free import *
+from integration_tool_game_db4free import *
 
 try:
     _fromUtf8 = QtCore.QString.fromUtf8
@@ -62,17 +63,24 @@ class IntegrationToolMain(QtGui.QMainWindow):
         self.main_tool_remindertool.setShortcut('Ctrl+1')
         self.main_tool_remindertool.setStatusTip(u'reminder tool   快捷键切换：Ctrl+1')
         self.main_tool_remindertool.setToolTip(u'reminder tool   快捷键切换：Ctrl+1')
-        
-        self.connect(self.main_tool_remindertool, QtCore.SIGNAL('triggered()'), self.main_tool_remindertool_show)        
+        self.connect(self.main_tool_remindertool, QtCore.SIGNAL('triggered()'), self.main_tool_remindertool_show)    
+            
         self.main_tool_chatting= QtGui.QAction(QtGui.QIcon(os.path.join(self.main_filedirpath,"main_tool_chatting.ico")), 'message board', self)
         self.main_tool_chatting.setShortcut('Ctrl+2')
         self.main_tool_chatting.setStatusTip(u'message board   快捷键切换：Ctrl+2')
         self.main_tool_chatting.setToolTip(u'message board   快捷键切换：Ctrl+2')
         self.connect(self.main_tool_chatting, QtCore.SIGNAL('triggered()'), self.main_tool_chatting_show)
         
+        self.main_tool_game= QtGui.QAction(QtGui.QIcon(os.path.join(self.main_filedirpath,'game.ico')), 'game', self)
+        self.main_tool_game.setShortcut('Ctrl+3')
+        self.main_tool_game.setStatusTip(u'message board   快捷键切换：Ctrl+3')
+        self.main_tool_game.setToolTip(u'message board   快捷键切换：Ctrl+3')
+        self.connect(self.main_tool_game, QtCore.SIGNAL('triggered()'), self.main_tool_game_show)
+        
         self.toolbar = self.addToolBar('Tools')
         self.toolbar.addAction(self.main_tool_remindertool)
         self.toolbar.addAction(self.main_tool_chatting)
+        self.toolbar.addAction(self.main_tool_game)
         self.toolbar.addAction(exit)
 
         main_icon = QtGui.QIcon(os.path.join(self.main_filedirpath,"168.ico"))     
@@ -146,6 +154,25 @@ class IntegrationToolMain(QtGui.QMainWindow):
             tools_dict[2].hide()
             tools_dict[2].frame.hide()
 
+    def main_tool_game_show(self):
+        global tools_dict
+        if tools_dict[3].isHidden():
+            self.close()
+            for key in tools_dict:
+                if key==3:
+                    tools_dict[3].show()
+                    tools_dict[3].frame.show()
+                    tools_dict[3].start()
+                    self.frame.hide()
+                    continue;
+                tools_dict[key].hide()
+                tools_dict[key].frame.hide()
+            self.main_shownormal_event()
+        else:
+            self.frame.show()
+            tools_dict[3].hide()
+            tools_dict[3].frame.hide()
+    
     def closeEvent(self,event):
         if self.main_trayIcon.isVisible() and self.isVisible():
             self.main_hide_event()
@@ -637,10 +664,13 @@ if __name__=='__main__':
     clock.show()
     chat = Ui_PublicChattingPlatform(integration_tool_main.main_frame)
     chat.hide()
-
+    tetris = Tetris(integration_tool_main.main_frame)  
+    tetris.hide() 
+    
     tools_dict={}
     tools_dict[1]=myalarm
     tools_dict[2]=chat
+    tools_dict[3]=tetris
     
     sys.exit(app.exec_())
     
